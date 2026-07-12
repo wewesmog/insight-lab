@@ -157,3 +157,4 @@ Restart the API. The graph picks `engine=llm` automatically; `analyze_one` calls
 
 MIT — use freely for learning, demos, and your own forks.
 # insight-lab
+# insight-lab
