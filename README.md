@@ -48,7 +48,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### 3. Try it
 
-1. Click **Load sample CSV** (uses `sample-data/bank_verbatims.csv`)
+1. Click **Kora Bank sample** or **Competitor switch sample** (bundled CSVs in `sample-data/`)
 2. Click **Run analysis**
 3. Explore theme counts, churn samples, and per-verbatim insight cards
 
@@ -107,7 +107,7 @@ Minimum: one text column. Auto-detected names:
 | Time | `timestamp`, `occurred_at`, `created_at`, `date` |
 | ID | `id`, `verbatim_id`, `external_id` |
 
-Example: `sample-data/bank_verbatims.csv`
+Examples: `sample-data/kora_bank_verbatims.csv`, `sample-data/competitor_switch_verbatims.csv`
 
 ---
 
