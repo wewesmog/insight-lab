@@ -7,11 +7,8 @@ Return structured JSON only. Be specific: themes are snake_case ids, issues and 
 Sentiment can be mixed when both praise and complaints appear in one comment."""
 
 
-def build_extract_user(*, text: str, star_rating: float | None) -> str:
-    rating_line = f"Star rating: {star_rating}" if star_rating is not None else "Star rating: not provided"
-    return f"""{rating_line}
-
-Verbatim:
+def build_extract_user(*, text: str) -> str:
+    return f"""Verbatim:
 {text}
 
 Return JSON with keys:

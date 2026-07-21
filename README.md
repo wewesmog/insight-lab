@@ -1,10 +1,8 @@
 # Insight Lab
 
-**Beyond positive/negative sentiment** — a minimal end-to-end demo for the [CVM-AI](https://github.com) YouTube channel.
+**Beyond positive/negative sentiment** — a minimal end-to-end demo for the CVM-AI YouTube channel.
 
-Upload customer verbatims (CSV) → run a **LangGraph** pipeline → see **themes, churn risk, NPS class, issues, and delights** on a shadcn dashboard.
-
-No API key required for the default demo (rule-based extraction). Set `OPENAI_API_KEY` to switch the graph to LLM extraction.
+Upload customer verbatims (CSV) → **LangGraph** + **LLM** → management report (themes, churn, inferred NPS, deep dive on extra columns).
 
 ---
 
@@ -12,12 +10,14 @@ No API key required for the default demo (rule-based extraction). Set `OPENAI_AP
 
 | Layer | Tech | Role |
 |-------|------|------|
-| **Frontend** | Next.js + shadcn | Upload CSV, trigger analysis, view rollups |
-| **API** | FastAPI | `POST /datasets/upload`, `POST /datasets/{id}/analyze` |
-| **Pipeline** | LangGraph | `prepare → analyze_one (loop) → rollup_batch` |
-| **Storage** | SQLite | Datasets + per-verbatim JSON analysis |
+| **Frontend** | Next.js + shadcn | Sidebar analyses, job progress, management report |
+| **API** | FastAPI | Upload job, poll report, CSV export, delete |
+| **Pipeline** | LangGraph | `prepare → analyze_one (loop) → rollup → enrich? → summarize?` |
+| **Storage** | SQLite | Datasets, extras, jobs, rollups |
 
-This repo is a **simplified cousin of [Echo](https://github.com)** — same ideas (structured extract → deterministic rollups), stripped down for teaching.
+**Key idea:** the LLM writes **per-verbatim JSON**. Charts and inferred NPS come from **Python rollups**.
+
+See **[HOW_IT_WORKS.md](HOW_IT_WORKS.md)** for a short code walkthrough.
 
 ---
 
@@ -25,14 +25,17 @@ This repo is a **simplified cousin of [Echo](https://github.com)** — same idea
 
 ### 1. Backend
 
+**Requires Python 3.10+**
+
 ```bash
 cd backend
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env   # optional: add OPENAI_API_KEY
+cp .env.example .env   # set LLM_PROVIDER / model / keys as needed
 
 uvicorn app.main:app --reload --port 8000
+# or: python -m app.main
 ```
 
 ### 2. Frontend
@@ -48,16 +51,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### 3. Try it
 
-1. Click **Kora Bank sample** or **Competitor switch sample** (bundled CSVs in `sample-data/`)
-2. Click **Run analysis**
-3. Explore theme counts, churn samples, and per-verbatim insight cards
-
-### CLI (no UI)
-
-```bash
-cd backend
-python scripts/run_analysis.py
-```
+1. Upload a CSV from `sample-data/` (prefer an enriched file with channel/region/…)
+2. Wait for the job (sidebar polls)
+3. Open the report — commentary, scorecards, themes, deep dive
 
 ---
 
@@ -65,49 +61,26 @@ python scripts/run_analysis.py
 
 ```mermaid
 flowchart LR
-    subgraph Frontend
-        UI[Next.js + shadcn]
-    end
-
-    subgraph API
-        UP[POST /datasets/upload]
-        AN[POST /datasets/{id}/analyze]
-        IN[GET /datasets/{id}/insights]
-    end
-
-    subgraph Storage
-        DB[(SQLite)]
-    end
-
-    subgraph Pipeline
-        G[LangGraph]
-    end
-
-    CSV[CSV file] --> UI
-    UI --> UP --> DB
-    UI --> AN --> G
+    CSV[CSV] --> UI[Next.js]
+    UI --> UP[POST /analyses/upload]
+    UP --> DB[(SQLite)]
+    UP --> G[LangGraph]
     G --> DB
-    UI --> IN --> DB
+    UI --> REP[GET /analyses/id]
+    REP --> DB
 ```
-
-**Key idea:** the LLM (or rules engine) only produces **per-verbatim records**. KPI cards and theme charts come from **deterministic rollups** in code — the model does not invent dashboard numbers.
-
-See [docs/LANGGRAPH.md](docs/LANGGRAPH.md) for the graph tree and node-by-node walkthrough.
 
 ---
 
 ## CSV format
 
-Minimum: one text column. Auto-detected names:
+**Required:** one text column (`verbatim`, `text`, `feedback`, `comment`, `message`, or `review`).
 
-| Purpose | Accepted column names |
-|---------|----------------------|
-| Text | `verbatim`, `text`, `feedback`, `comment`, `message`, `review` |
-| Rating | `star_rating`, `rating`, `stars`, `score` |
-| Time | `timestamp`, `occurred_at`, `created_at`, `date` |
-| ID | `id`, `verbatim_id`, `external_id` |
+**Optional first-class:** id, timestamp.
 
-Examples: `sample-data/kora_bank_verbatims.csv`, `sample-data/competitor_switch_verbatims.csv`
+**Everything else** (ratings, NPS, channel, product, region, …) is stored in **`extras`** and used by enrich when suitable.
+
+Examples: `sample-data/`.
 
 ---
 
@@ -115,46 +88,46 @@ Examples: `sample-data/kora_bank_verbatims.csv`, `sample-data/competitor_switch_
 
 ```
 insight-lab/
-├── sample-data/           # Bundled demo CSV
+├── HOW_IT_WORKS.md        # Code guide (tracked in git)
+├── README.md
+├── sample-data/
 ├── backend/
-│   ├── app/
-│   │   ├── graphs/verbatim_insights/   # LangGraph (start here for videos)
-│   │   ├── pipeline/                     # run.py, rules.py, rollup.py
-│   │   ├── prompts/                      # LLM prompts (optional path)
-│   │   ├── main.py                       # FastAPI routes
-│   │   └── store.py                      # SQLite + CSV parse
-│   └── scripts/run_analysis.py           # CLI demo
-├── frontend/              # shadcn UI wired to API
-└── docs/
-    ├── LANGGRAPH.md       # Graph tree + node reference
-    └── ARCHITECTURE.md    # System design
+│   └── app/
+│       ├── graphs/verbatim_insights/   # LangGraph
+│       ├── pipeline/                   # skip, rollup, enrich, summary, jobs
+│       ├── shared_services/            # llm, db
+│       ├── main.py
+│       └── store.py
+├── frontend/
+└── docs/                  # YouTube / presenter notes (gitignored)
 ```
+
+---
+
+## Configure LLM
+
+```bash
+# backend/.env
+LLM_PROVIDER=ollama        # ollama | openai | gemini
+OLLAMA_MODEL=llama3.2
+# OPENAI_API_KEY=sk-...
+# GOOGLE_API_KEY=...
+```
+
+Analysis needs a working provider. `engine` in API responses is the model name.
 
 ---
 
 ## Docs
 
-- **[Video guide](docs/VIDEO_GUIDE.md)** — episode order, dual-screen setup, presentation PNGs, demo script
-- **[LangGraph pipeline](docs/LANGGRAPH.md)** — graph diagram, state, routing, where to extend
-- **[Architecture](docs/ARCHITECTURE.md)** — layers, API contract, comparison to Echo
-- **[Diagram exports](docs/diagrams/README.md)** — PNG filenames for filming
-
----
-
-## Optional: enable LLM
-
-```bash
-# backend/.env
-OPENAI_API_KEY=sk-...
-LLM_MODEL=gpt-4o-mini
-```
-
-Restart the API. The graph picks `engine=llm` automatically; `analyze_one` calls OpenAI instead of the rules module.
+| Doc | In git? | Purpose |
+|-----|---------|---------|
+| [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | Yes | Understand the code |
+| `docs/VIDEO_GUIDE.md` | No | YouTube episode scripts |
+| `docs/PIPELINE.md` | No | System + LangGraph (presenter) |
 
 ---
 
 ## License
 
 MIT — use freely for learning, demos, and your own forks.
-# insight-lab
-# insight-lab

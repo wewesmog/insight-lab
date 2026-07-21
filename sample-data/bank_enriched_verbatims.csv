@@ -1,0 +1,13 @@
+id,verbatim,star_rating,nps_score,ces_score,channel,product,region,tenure_months,timestamp
+b-01,"Can't login after the latest app update. Password reset worked once then failed again. Payment to school fees also bounced twice.",1,2,6,mobile_app,payments,Nairobi,4,2026-01-10T08:15:00Z
+b-02,"Someone withdrew 45000 from my account without my permission. I need the fraud team to call me back immediately.",1,0,7,call_center,fraud,Nairobi,18,2026-01-11T14:22:00Z
+b-03,"Fast transfers and a clean interface. Customer support resolved my locked account in under ten minutes. I recommend this bank to colleagues.",5,10,2,mobile_app,transfers,Mombasa,36,2026-01-12T09:40:00Z
+b-04,"Love the savings goals feature and the interest rate is competitive, but KYC photo upload keeps failing and verification is still pending after a week.",3,6,5,mobile_app,onboarding,Kisumu,2,2026-01-13T16:05:00Z
+b-05,"Branch staff were rude and made me wait 45 minutes for a simple statement. Considering switching to a digital-only bank.",2,3,6,branch,statements,Nairobi,48,2026-01-14T11:20:00Z
+b-06,"USSD works even when data is down. Airtime top-up is instant. Please keep this channel.",5,9,1,ussd,airtime,Nakuru,22,2026-01-15T07:55:00Z
+b-07,"Card declined abroad three times despite travel notice. Lost a hotel booking. Extremely disappointed.",1,1,7,mobile_app,cards,Nairobi,9,2026-01-16T19:10:00Z
+b-08,"Agent helped me open an account in 15 minutes. Clear explanation of fees. Good first impression.",4,8,2,agent,onboarding,Eldoret,1,2026-01-17T12:30:00Z
+b-09,"Loan rejection with no reason shown in the app. Support chat just pasted a template. Looking at competitors.",2,2,6,mobile_app,loans,Nairobi,14,2026-01-18T15:45:00Z
+b-10,"Interest on my fixed deposit posted on time. App notifications are useful. Happy for now.",5,9,2,mobile_app,deposits,Mombasa,30,2026-01-19T08:05:00Z
+b-11,"POS at my shop fails every evening. Float issues again. This is killing weekend sales.",1,1,7,agent,merchant,Kisumu,11,2026-01-20T20:15:00Z
+b-12,"Moved salary to this bank because of the salary advance product. Disbursement was same day.",5,10,2,mobile_app,loans,Nairobi,7,2026-01-21T10:00:00Z

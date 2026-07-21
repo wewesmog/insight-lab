@@ -1,7 +1,8 @@
-"""CLI entry: run the LangGraph on the bundled sample CSV."""
+"""CLI: upload and analyze a CSV file."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -20,10 +21,18 @@ from app import store
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run Insight Lab analysis on a CSV file")
+    parser.add_argument("csv", type=Path, help="Path to a verbatim CSV file")
+    parser.add_argument("--name", help="Optional dataset display name")
+    args = parser.parse_args()
+
+    if not args.csv.exists():
+        raise SystemExit(f"File not found: {args.csv}")
+
     init_db()
-    sample_path = _backend_root.parent / "sample-data" / "kora_bank_verbatims.csv"
-    rows = store.parse_csv(sample_path.read_bytes(), sample_path.name)
-    dataset = store.create_dataset("CLI sample run", sample_path.name, rows)
+    content = args.csv.read_bytes()
+    rows = store.parse_csv(content, args.csv.name)
+    dataset = store.create_dataset(args.name or args.csv.stem, args.csv.name, rows)
 
     print(f"Dataset: {dataset.id} ({dataset.row_count} rows)")
     print("Running LangGraph pipeline...\n")
@@ -37,7 +46,7 @@ def main() -> None:
 
     for record in result.records:
         label = "SKIP" if record.skipped else "OK"
-        print(f"[{label}] {record.external_id if hasattr(record, 'external_id') else record.verbatim_id}")
+        print(f"[{label}] {record.verbatim_id}")
         print(json.dumps(record.model_dump(), indent=2, default=str))
         print()
 

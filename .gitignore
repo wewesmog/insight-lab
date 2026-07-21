@@ -17,3 +17,6 @@ out/
 .DS_Store
 .idea/
 .vscode/
+
+# YouTube / presenter docs (local only — not for git)
+docs/

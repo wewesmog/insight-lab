@@ -9,20 +9,21 @@ if str(_backend_root) not in sys.path:
     sys.path.insert(0, str(_backend_root))
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
-from app.models import (
-    AnalyzeResponse,
-    DatasetSummary,
-    InsightsRollup,
-    UploadResponse,
-    VerbatimAnalysis,
-)
-from app.pipeline.run import run_dataset_analysis
-from app.shared_services.db import database_path, init_db
-from app.config.samples import DEFAULT_SAMPLE, SAMPLE_DATASETS, SAMPLE_ROOT
 from app import store
+from app.models import (
+    AnalysisListPage,
+    AnalysisReport,
+    AnalysisRunRequest,
+    AnalysisRunResponse,
+    UploadResponse,
+)
+from app.pipeline.jobs import enqueue_analysis
+from app.graphs.verbatim_insights.graph import run_insights_graph
+from app.shared_services.db import database_path, init_db
 
 load_dotenv(_backend_root / ".env")
 
@@ -50,112 +51,106 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str | bool]:
-    from app.shared_services.llm import llm_enabled
+    from app.shared_services.llm import get_model, llm_enabled
 
     return {
         "status": "ok",
         "database": database_path(),
         "llm_enabled": llm_enabled(),
+        "llm_model": get_model(),
     }
 
 
-@app.get("/datasets", response_model=list[DatasetSummary])
-def get_datasets() -> list[DatasetSummary]:
-    return store.list_datasets()
-
-
-@app.post("/datasets/upload", response_model=UploadResponse)
-async def upload_dataset(
+@app.post("/analyses/upload", response_model=UploadResponse)
+async def upload_and_start_analysis(
     file: UploadFile = File(...),
-    name: str | None = None,
+    name: str | None = Form(None),
 ) -> UploadResponse:
+    """Upload CSV → create dataset + analysis job → run in background."""
+    from app.shared_services.llm import llm_enabled
+
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Upload a .csv file")
+    if not llm_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="LLM is not available. Check Ollama is running and LLM_MODEL is set.",
+        )
 
     content = await file.read()
     try:
         rows = store.parse_csv(content, file.filename)
-        dataset = store.create_dataset(name or file.filename, file.filename, rows)
+        display_name = name or file.filename
+        dataset = store.create_dataset(display_name, file.filename, rows)
+        analysis = store.create_analysis(dataset.id, display_name, len(rows))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return UploadResponse(dataset=dataset, preview=rows[:5])
+    enqueue_analysis(analysis.id)
+    return UploadResponse(dataset=dataset, preview=rows[:5], analysis=analysis)
 
 
-@app.post("/datasets/sample", response_model=UploadResponse)
-def load_sample(sample: str = DEFAULT_SAMPLE) -> UploadResponse:
-    key = sample.strip().lower()
-    if key not in SAMPLE_DATASETS:
-        allowed = ", ".join(SAMPLE_DATASETS)
-        raise HTTPException(status_code=400, detail=f"Unknown sample '{sample}'. Use: {allowed}")
-
-    display_name, filename = SAMPLE_DATASETS[key]
-    sample_path = SAMPLE_ROOT / filename
-    if not sample_path.exists():
-        raise HTTPException(status_code=404, detail=f"Sample CSV not found: {filename}")
-
-    dataset = store.load_sample_dataset(sample_path, display_name)
-    preview = store.list_verbatim_rows(dataset.id, limit=5)
-    return UploadResponse(dataset=dataset, preview=preview)
+@app.get("/analyses", response_model=AnalysisListPage)
+def list_analyses(page: int = 1, page_size: int = 20) -> AnalysisListPage:
+    items, total = store.list_analysis_jobs(page=page, page_size=page_size)
+    return AnalysisListPage(items=items, total=total, page=page, page_size=page_size)
 
 
-@app.get("/datasets/{dataset_id}", response_model=DatasetSummary)
-def get_dataset(dataset_id: str) -> DatasetSummary:
+@app.get("/analyses/{analysis_id}", response_model=AnalysisReport)
+def get_analysis_report(analysis_id: str) -> AnalysisReport:
     try:
-        return store.get_dataset(dataset_id)
+        analysis = store.get_analysis(analysis_id)
+        dataset = store.get_dataset(analysis.dataset_id)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Dataset not found") from exc
+        raise HTTPException(status_code=404, detail="Analysis not found") from exc
 
-
-@app.post("/datasets/{dataset_id}/analyze", response_model=AnalyzeResponse)
-def analyze_dataset(dataset_id: str) -> AnalyzeResponse:
-    try:
-        store.get_dataset(dataset_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Dataset not found") from exc
-
-    rows = store.list_verbatim_rows(dataset_id, limit=10_000)
-    result = run_dataset_analysis(dataset_id, rows)
-    store.save_analyses(dataset_id, result.records, result.engine)
-
-    if result.rollup is None:
-        raise HTTPException(status_code=500, detail="Graph did not produce rollups")
-
-    return AnalyzeResponse(
-        dataset_id=dataset_id,
-        run_id=result.run_id,
-        analyzed=result.analyzed_count,
-        skipped=result.skipped_count,
-        engine=result.engine,
-        records=result.records,
-        rollup=result.rollup,
+    rollup = store.get_analysis_rollup(analysis_id)
+    # Row-level records are served via /export.csv, not embedded here.
+    return AnalysisReport(
+        analysis=analysis,
+        dataset=dataset,
+        rollup=rollup,
+        records=[],
     )
 
 
-@app.get("/datasets/{dataset_id}/insights", response_model=InsightsRollup)
-def dataset_insights(dataset_id: str) -> InsightsRollup:
+@app.get("/analyses/{analysis_id}/export.csv")
+def export_analysis_csv(analysis_id: str) -> StreamingResponse:
     try:
-        store.get_dataset(dataset_id)
+        analysis = store.get_analysis(analysis_id)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Dataset not found") from exc
+        raise HTTPException(status_code=404, detail="Analysis not found") from exc
 
-    records = store.list_analyses(dataset_id)
-    if not records:
-        raise HTTPException(status_code=404, detail="Run analysis first")
+    if analysis.status.value != "ready":
+        raise HTTPException(status_code=409, detail="Analysis is not ready yet")
 
-    from app.pipeline.rollup import build_rollup
+    records = store.list_analyses_for_dataset(analysis.dataset_id)
+    csv_text = store.records_to_csv(records, analysis_name=analysis.name)
+    stem = analysis.name.rsplit(".", 1)[0] if "." in analysis.name else analysis.name
+    safe_name = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in stem).strip("_")
+    filename = f"{safe_name or 'analysis'}_records.csv"
 
-    return build_rollup(dataset_id, records)
+    return StreamingResponse(
+        iter([csv_text]),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Analysis-Name": analysis.name,
+        },
+    )
+
+@app.delete("/analyses/{analysis_id}")
+def delete_analysis(analysis_id: str) -> None:
+    store.delete_analysis(analysis_id)
+    return {"message": "Analysis deleted successfully"}
+
+@app.post("/test/langgraph", response_model=AnalysisRunResponse)
+def test_langgraph(body: AnalysisRunRequest) -> AnalysisRunResponse:
+    """Sandbox: same request/response as the graph runner (not saved to the UI list)."""
+    return run_insights_graph(body)
 
 
-@app.get("/datasets/{dataset_id}/records", response_model=list[VerbatimAnalysis])
-def dataset_records(dataset_id: str) -> list[VerbatimAnalysis]:
-    try:
-        store.get_dataset(dataset_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Dataset not found") from exc
+if __name__ == "__main__":
+    import uvicorn
 
-    records = store.list_analyses(dataset_id)
-    if not records:
-        raise HTTPException(status_code=404, detail="Run analysis first")
-    return records
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

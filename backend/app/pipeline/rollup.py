@@ -1,10 +1,18 @@
-"""Build dataset-level rollups from per-verbatim records."""
+"""Build dataset-level rollups from per-verbatim records (deterministic KPIs)."""
 
 from __future__ import annotations
 
 from collections import Counter
 
-from app.models import ChurnRisk, InsightsRollup, Sentiment, ThemeCount, VerbatimAnalysis
+from app.models import (
+    ChurnRisk,
+    InsightsRollup,
+    MetricBlock,
+    NpsClass,
+    Sentiment,
+    ThemeCount,
+    VerbatimAnalysis,
+)
 
 COMPETITOR_THEME = "competitor_switch"
 
@@ -42,6 +50,7 @@ def build_rollup(dataset_id: str, records: list[VerbatimAnalysis]) -> InsightsRo
         emotion=dict(emotion),
         nps_class=dict(nps_class),
         churn_risk=dict(churn_risk),
+        metrics=_build_metrics(analyzed, sentiment, nps_class, churn_risk),
         top_themes=_top(theme_counter),
         top_issues=_top(issue_counter),
         top_delights=_top(delight_counter),
@@ -53,5 +62,33 @@ def build_rollup(dataset_id: str, records: list[VerbatimAnalysis]) -> InsightsRo
     )
 
 
-def _top(counter: Counter[str], limit: int = 6) -> list[ThemeCount]:
+def _build_metrics(
+    analyzed: list[VerbatimAnalysis],
+    sentiment: Counter[str],
+    nps_class: Counter[str],
+    churn_risk: Counter[str],
+) -> MetricBlock:
+    n = len(analyzed) or 1
+
+    promoters = nps_class.get(NpsClass.promoter.value, 0)
+    passives = nps_class.get(NpsClass.passive.value, 0)
+    detractors = nps_class.get(NpsClass.detractor.value, 0)
+    nps_n = promoters + passives + detractors
+
+    pos = sentiment.get(Sentiment.positive.value, 0)
+    neg = sentiment.get(Sentiment.negative.value, 0)
+    high = churn_risk.get(ChurnRisk.high.value, 0)
+
+    return MetricBlock(
+        nps_score=((promoters - detractors) / nps_n * 100.0) if nps_n else None,
+        nps_promoter_pct=(promoters / nps_n * 100.0) if nps_n else None,
+        nps_passive_pct=(passives / nps_n * 100.0) if nps_n else None,
+        nps_detractor_pct=(detractors / nps_n * 100.0) if nps_n else None,
+        positive_pct=(pos / n * 100.0) if analyzed else None,
+        negative_pct=(neg / n * 100.0) if analyzed else None,
+        high_churn_pct=(high / n * 100.0) if analyzed else None,
+    )
+
+
+def _top(counter: Counter[str], limit: int = 8) -> list[ThemeCount]:
     return [ThemeCount(theme=k, count=v) for k, v in counter.most_common(limit)]

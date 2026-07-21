@@ -17,16 +17,16 @@ def _merge_stats(existing: Optional[RunStats], new: Optional[RunStats]) -> RunSt
         return existing
     return RunStats(
         llm_calls=existing.llm_calls + new.llm_calls,
-        rule_skips=existing.rule_skips + new.rule_skips,
-        rule_analyzed=existing.rule_analyzed + new.rule_analyzed,
+        skipped=existing.skipped + new.skipped,
     )
 
 
 class InsightsGraphState(TypedDict, total=False):
     run_id: str
     dataset_id: str
+    analysis_id: Optional[str]
     status: Literal["pending", "running", "completed", "failed"]
-    engine: Literal["rules", "llm"]
+    engine: str
 
     verbatims: list[VerbatimRow]
     pending_ids: list[str]

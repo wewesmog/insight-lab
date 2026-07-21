@@ -1,13 +1,13 @@
-id,verbatim,star_rating,timestamp
-v-001,Can't login after the update. Payment failed twice. Switching to Equity.,1,2026-01-15T09:12:00Z
-v-002,Someone withdrew 50000 from my account without permission. Need help now!,1,2026-01-16T14:30:00Z
-v-003,Fast transfers clean UI and support resolved my issue in minutes. Recommend to everyone.,5,2026-01-17T11:00:00Z
-v-004,Love the new design but KYC upload keeps failing. Took 20 minutes and still pending.,3,2026-01-18T16:45:00Z
-v-005,ok,4,2026-01-19T08:00:00Z
-v-006,ATM swallowed my card and branch said wait 5 days. Unacceptable.,2,2026-01-20T10:20:00Z
-v-007,Interest rates on savings are great. Auto-save feature is a game changer.,5,2026-01-21T13:15:00Z
-v-008,App crashes every time I try to pay bills. Considering Monzo instead.,1,2026-01-22T19:40:00Z
-v-009,Customer service agent was rude and hung up. Still waiting for callback.,2,2026-01-23T12:05:00Z
-v-010,Loan approval was instant and the process was transparent. Very impressed.,5,2026-01-24T15:30:00Z
-v-011,OTP never arrives so I cannot complete transfer. Security is broken.,1,2026-01-25T09:55:00Z
-v-012,The budgeting insights helped me save 200 this month. Keep it up!,4,2026-01-26T18:10:00Z
+id,verbatim,star_rating,nps_score,ces_score,timestamp
+v-001,Can't login after the update. Payment failed twice. Switching to Equity.,1,2,6,2026-01-15T09:12:00Z
+v-002,Someone withdrew 50000 from my account without permission. Need help now!,1,0,7,2026-01-16T14:30:00Z
+v-003,Fast transfers clean UI and support resolved my issue in minutes. Recommend to everyone.,5,10,2,2026-01-17T11:00:00Z
+v-004,Love the new design but KYC upload keeps failing. Took 20 minutes and still pending.,3,7,3,2026-01-18T16:45:00Z
+v-005,ok,4,7,4,2026-01-19T08:00:00Z
+v-006,ATM swallowed my card and branch said wait 5 days. Unacceptable.,2,3,6,2026-01-20T10:20:00Z
+v-007,Interest rates on savings are great. Auto-save feature is a game changer.,5,10,1,2026-01-21T13:15:00Z
+v-008,App crashes every time I try to pay bills. Considering Monzo instead.,1,0,7,2026-01-22T19:40:00Z
+v-009,Customer service agent was rude and hung up. Still waiting for callback.,2,3,6,2026-01-23T12:05:00Z
+v-010,Loan approval was instant and the process was transparent. Very impressed.,5,10,1,2026-01-24T15:30:00Z
+v-011,OTP never arrives so I cannot complete transfer. Security is broken.,1,0,7,2026-01-25T09:55:00Z
+v-012,The budgeting insights helped me save 200 this month. Keep it up!,4,8,3,2026-01-26T18:10:00Z
